@@ -38,6 +38,18 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "884335144349241Y",
+          "clientToken": "296075075ca19c938466523df2fc02d9",
+          "displayName": "MusicPlayer",
+          "scheme": "fb884335144349241",
+          "advertiserIDCollectionEnabled": false,
+          "autoLogAppEventsEnabled": false,
+          "isAutoInitEnabled": true
+        }
       ]
     ],
     "experiments": {
