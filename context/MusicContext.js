@@ -1,6 +1,6 @@
 import { Audio } from 'expo-av';
 import { createContext, useContext, useState } from 'react';
-import { Platform } from 'react-native'; // <--- CHÁU THÊM DÒNG NÀY
+import { Platform } from 'react-native';
 
 const MusicContext = createContext();
 
@@ -8,104 +8,82 @@ export const MusicProvider = ({ children }) => {
   const [sound, setSound] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSong, setCurrentSong] = useState(null);
+  
+  // --- STATE MỚI CHO THANH TRƯỢT ---
+  const [duration, setDuration] = useState(0); // Tổng thời gian bài hát
+  const [position, setPosition] = useState(0); // Thời gian đang phát hiện tại
+  const [volume, setVolume] = useState(1.0);   // Âm lượng (từ 0.0 đến 1.0)
 
-  // --- DỮ LIỆU NHẠC ONLINE ---
   const PLAYLIST = [
-    {
-      id: '1',
-      title: 'Ngắm Hoa Lệ Rơi ',
-      artist: 'Châu Khải Phong',
-      image: 'https://photo-resize-zmp3.zmdcdn.me/w600_r1x1_jpeg/cover/f/1/5/7/f15779557760927e1f486a4382836267.jpg',
-      url: 'https://res.cloudinary.com/djp9dqoyt/video/upload/v1764341350/gxqfxodncpz5phzl0dyt.mp3'
-    },
-    {
-      id: '2',
-      title: 'Nhạc Demo 2 (Nhẹ nhàng)',
-      artist: 'SoundHelix',
-      image: 'https://photo-resize-zmp3.zmdcdn.me/w600_r1x1_jpeg/cover/c/b/1/3/cb1372b64955b25372338c237d8004b7.jpg',
-      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3'
-    },
-    {
-      id: '3',
-      title: 'Piano Trầm Lắng',
-      artist: 'SoundHelix',
-      image: 'https://photo-resize-zmp3.zmdcdn.me/w600_r1x1_jpeg/cover/4/3/1/6/43163351227038743179262276527582.jpg',
-      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'
-    },
-    {
-      id: '4',
-      title: 'Nhịp Điệu Nhanh',
-      artist: 'Test Artist',
-      image: 'https://photo-resize-zmp3.zmdcdn.me/w600_r1x1_jpeg/cover/e/2/3/9/e23924376326127e7f95033c467a90f1.jpg',
-      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'
-    },
+    { id: '1', title: 'Ngắm Hoa Lệ Rơi ', artist: 'Châu Khải Phong', image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&q=80', url: 'https://res.cloudinary.com/djp9dqoyt/video/upload/v1764341350/gxqfxodncpz5phzl0dyt.mp3' },
+    { id: '2', title: 'Nhạc Demo 2 (Nhẹ nhàng)', artist: 'SoundHelix', image: 'https://images.unsplash.com/photo-1493225457124-a1a2a5fd37b5?w=500&q=80', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
+    { id: '3', title: 'Piano Trầm Lắng', artist: 'SoundHelix', image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&q=80', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
   ];
 
-  // --- HÀM PHÁT NHẠC ---
   async function playSong(song) {
     try {
-      console.log("Đang chuẩn bị phát bài:", song.title); // In ra để kiểm tra
+      if (sound) await sound.unloadAsync();
 
-      // 1. Nếu đang có bài nào hát thì tắt đi
-      if (sound) {
-        await sound.unloadAsync();
-      }
-
-      // 2. SỬA LỖI WEB: Chỉ chạy cấu hình này nếu KHÔNG PHẢI là web
       if (Platform.OS !== 'web') {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-        });
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: true });
       }
 
-      // 3. Tải nhạc từ URL Online
+      // Khởi tạo bài hát với âm lượng hiện tại
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: song.url },
-        { shouldPlay: true } 
+        { shouldPlay: true, volume: volume } 
       );
 
       setSound(newSound);
       setCurrentSong(song);
       setIsPlaying(true);
 
-      // 4. Lắng nghe: Hết bài thì tự đổi icon thành Pause
+      // --- THEO DÕI THỜI GIAN CHẠY ---
       newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.didJustFinish) {
-          setIsPlaying(false);
+        if (status.isLoaded) {
+          setPosition(status.positionMillis); // Cập nhật vị trí hiện tại
+          setDuration(status.durationMillis); // Cập nhật tổng thời gian
+          
+          if (status.didJustFinish) {
+            setIsPlaying(false);
+            setPosition(0);
+          }
         }
       });
-
     } catch (error) {
       console.log("Lỗi phát nhạc:", error);
-      alert("Không thể phát nhạc: " + error.message); // Báo lỗi thẳng lên màn hình để dễ tìm
     }
   }
 
-  // --- HÀM TẠM DỪNG ---
   async function pauseSong() {
+    if (sound) { await sound.pauseAsync(); setIsPlaying(false); }
+  }
+
+  async function resumeSong() {
+    if (sound) { await sound.playAsync(); setIsPlaying(true); }
+  }
+
+  // --- HÀM TUA NHẠC ---
+  async function seekTo(value) {
     if (sound) {
-      await sound.pauseAsync();
-      setIsPlaying(false);
+      await sound.setPositionAsync(value);
+      setPosition(value);
     }
   }
 
-  // --- HÀM TIẾP TỤC HÁT ---
-  async function resumeSong() {
+  // --- HÀM CHỈNH ÂM LƯỢNG ---
+  async function changeVolume(value) {
     if (sound) {
-      await sound.playAsync();
-      setIsPlaying(true);
+      await sound.setVolumeAsync(value);
     }
+    setVolume(value);
   }
 
   return (
     <MusicContext.Provider value={{
-      currentSong,
-      isPlaying,
-      playlist: PLAYLIST, 
-      playSong,
-      pauseSong,
-      resumeSong
+      currentSong, isPlaying, playlist: PLAYLIST, 
+      playSong, pauseSong, resumeSong,
+      duration, position, volume, seekTo, changeVolume // Xuất các hàm mới ra ngoài
     }}>
       {children}
     </MusicContext.Provider>
