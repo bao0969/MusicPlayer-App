@@ -1,12 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../context/AuthContext'; // <--- Đổi lại đường dẫn nếu cần
 
-// BƯỚC A: Import thư viện chọn ảnh
-import * as ImagePicker from 'expo-image-picker';
-import { useAuth } from '../../context/AuthContext'; // Kiểm tra lại đường dẫn nhé
+const AVATAR_LIST = [
+  'https://i.pravatar.cc/150?img=11',
+  'https://i.pravatar.cc/150?img=12',
+  'https://i.pravatar.cc/150?img=33',
+  'https://i.pravatar.cc/150?img=47',
+  'https://i.pravatar.cc/150?img=59'
+];
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -16,43 +21,17 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
-  // BƯỚC B: Tạo state lưu đường dẫn ảnh, mặc định là 1 cái ảnh xám xám hình người
-  const [avatarUri, setAvatarUri] = useState('https://i.pravatar.cc/150?img=12');
-  
+  const [avatarIndex, setAvatarIndex] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // Hàm thông báo đa nền tảng
+  // ==========================================
+  // HÀM THÔNG BÁO ĐA NỀN TẢNG (WEB + ANDROID + IOS)
+  // ==========================================
   const showNotification = (title, message) => {
     if (Platform.OS === 'web') {
       window.alert(`${title}\n\n${message}`); 
     } else {
       Alert.alert(title, message); 
-    }
-  };
-
-  // ==========================================
-  // BƯỚC C: HÀM MỞ THƯ VIỆN ẢNH ĐỂ CHỌN
-  // ==========================================
-  const pickImage = async () => {
-    // Xin quyền truy cập thư viện ảnh (Cần thiết cho điện thoại)
-    let permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permissionResult.granted === false) {
-      showNotification('Lỗi', 'Bạn cần cấp quyền truy cập ảnh để đổi Avatar!');
-      return;
-    }
-
-    // Mở thư viện ảnh
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // Chỉ chọn ảnh
-      allowsEditing: true, // Cho phép cắt ảnh
-      aspect: [1, 1], // Cắt ảnh theo hình vuông (tỷ lệ 1:1)
-      quality: 0.5, // Nén ảnh lại 1 xíu cho nhẹ
-    });
-
-    // Nếu người dùng chọn ảnh (không bấm hủy)
-    if (!result.canceled) {
-      setAvatarUri(result.assets[0].uri); // Lưu đường dẫn ảnh mới vào state
     }
   };
 
@@ -67,8 +46,7 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
-    // Truyền cái avatarUri vừa chọn lên Firebase
-    const result = await register(name, email, password, avatarUri);
+    const result = await register(name, email, password, AVATAR_LIST[avatarIndex]);
     setLoading(false);
 
     if (result.success) {
@@ -94,15 +72,14 @@ export default function RegisterScreen() {
 
       <Text style={styles.headerTitle}>Tạo tài khoản</Text>
 
-      {/* KHU VỰC AVATAR ĐÃ ĐƯỢC GẮN HÀM pickImage */}
       <View style={styles.avatarContainer}>
-        <TouchableOpacity onPress={pickImage}>
-          <Image source={{ uri: avatarUri }} style={styles.avatarPreview} />
+        <TouchableOpacity onPress={() => setAvatarIndex((prev) => (prev + 1) % AVATAR_LIST.length)}>
+          <Image source={{ uri: AVATAR_LIST[avatarIndex] }} style={styles.avatarPreview} />
           <View style={styles.editIcon}>
             <Ionicons name="camera" size={16} color="#fff" />
           </View>
         </TouchableOpacity>
-        <Text style={styles.avatarHint}>Chạm vào ảnh để tải lên</Text>
+        <Text style={styles.avatarHint}>Chạm vào ảnh để đổi</Text>
       </View>
 
       <View style={styles.inputContainer}>
